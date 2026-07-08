@@ -34,8 +34,11 @@ func download(w http.ResponseWriter, r *http.Request) {
 			srcFile, err := os.Open(path)
 			check(err)
 
+			relativePath, err := filepath.Rel(sourcePath, path)
+			check(err)
+
 			destFile, err := archive.CreateHeader(&zip.FileHeader{
-				Name:   path,
+				Name:   filepath.ToSlash(relativePath),
 				Method: zip.Store,
 			})
 			check(err)
