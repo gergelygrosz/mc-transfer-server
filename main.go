@@ -16,36 +16,33 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-// const (
-// 	ARCHIVE_NAME string = "pack.zip"
-// 	SOURCE_PATH  string = "PrismLauncher/instances/Zéta/minecraft/blueprints/zeta"
-// )
+var sourcePath string = os.Getenv("mc-transfer-source")
 
 func download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", "attachment; filename=\"név.zip\"")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"pack.zip\"")
 
 	archive := zip.NewWriter(w)
 	defer archive.Close()
 
-	filepath.WalkDir("folder", func(path string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(sourcePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if !d.IsDir() {
-			file, e := os.Open(path)
-			check(e)
+			srcFile, err := os.Open(path)
+			check(err)
 
-			secondaryWriter, e := archive.CreateHeader(&zip.FileHeader{
+			destFile, err := archive.CreateHeader(&zip.FileHeader{
 				Name:   path,
 				Method: zip.Store,
 			})
-			check(e)
+			check(err)
 
-			_, e = io.Copy(secondaryWriter, file)
-			check(e)
-			file.Close()
+			_, err = io.Copy(destFile, srcFile)
+			check(err)
+			srcFile.Close()
 		}
 
 		return nil
