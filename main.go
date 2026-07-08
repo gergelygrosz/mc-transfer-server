@@ -2,21 +2,36 @@ package main
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
-func main() {
-	fmt.Println("Listening to :8080")
-	http.HandleFunc("/download", download)
-	http.ListenAndServe(":8080", nil)
+type Config struct {
+	Source  string `json:"source"`
+	Port    int    `json:"port"`
+	UrlPath string `json:"urlpath"`
 }
 
-var sourcePath string = os.Getenv("mc-transfer-source")
+var cfg Config
+
+func main() {
+	configFile, err := os.ReadFile("config.json")
+	check(err)
+
+	err = json.Unmarshal(configFile, &cfg)
+	check(err)
+
+	fmt.Println("Listening to :8080")
+	http.HandleFunc(cfg.UrlPath, download)
+	port := ":" + strconv.Itoa(cfg.Port)
+	http.ListenAndServe(port, nil)
+}
 
 func download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
@@ -25,7 +40,7 @@ func download(w http.ResponseWriter, r *http.Request) {
 	archive := zip.NewWriter(w)
 	defer archive.Close()
 
-	filepath.WalkDir(sourcePath, func(path string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(cfg.Source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -34,7 +49,7 @@ func download(w http.ResponseWriter, r *http.Request) {
 			srcFile, err := os.Open(path)
 			check(err)
 
-			relativePath, err := filepath.Rel(sourcePath, path)
+			relativePath, err := filepath.Rel(cfg.Source, path)
 			check(err)
 
 			destFile, err := archive.CreateHeader(&zip.FileHeader{
