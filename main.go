@@ -22,10 +22,16 @@ var cfg Config
 
 func main() {
 	configFile, err := os.ReadFile("config.json")
-	check(err)
+	if err != nil {
+		fmt.Println("failed to open config.json")
+		panic(err)
+	}
 
 	err = json.Unmarshal(configFile, &cfg)
-	check(err)
+	if err != nil {
+		fmt.Println("failed to parse config.json")
+		panic(err)
+	}
 
 	fmt.Println("Listening to :8080")
 	http.HandleFunc(cfg.UrlPath, download)
@@ -40,35 +46,46 @@ func download(w http.ResponseWriter, r *http.Request) {
 	archive := zip.NewWriter(w)
 	defer archive.Close()
 
-	filepath.WalkDir(cfg.Source, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(cfg.Source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if !d.IsDir() {
 			srcFile, err := os.Open(path)
-			check(err)
+			if err != nil {
+				fmt.Println("failed to open source file")
+				return err
+			}
 
 			relativePath, err := filepath.Rel(cfg.Source, path)
-			check(err)
+			if err != nil {
+				fmt.Println("failed to relativise file path in respect to source root")
+				return err
+			}
 
 			destFile, err := archive.CreateHeader(&zip.FileHeader{
 				Name:   filepath.ToSlash(relativePath),
 				Method: zip.Store,
 			})
-			check(err)
+			if err != nil {
+				fmt.Println("failed to create file inside of the archive")
+				return err
+			}
 
 			_, err = io.Copy(destFile, srcFile)
-			check(err)
+			if err != nil {
+				fmt.Println("failed to copy file contents into the archive")
+				return err
+			}
+
 			srcFile.Close()
 		}
 
 		return nil
 	})
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
+	if err != nil {
+		fmt.Println("archive creation failed as described above")
+		panic(err)
 	}
 }
